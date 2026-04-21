@@ -36,6 +36,7 @@ APT_PACKAGES=(
   ripgrep
   rootlesskit
   slirp4netns
+  socat
   tailscale
   uidmap
 )
@@ -133,9 +134,11 @@ install_host_templates() {
   install_template "${TEMPLATES_DIR}/update-cloudflare-nft-sets" /usr/local/sbin/update-cloudflare-nft-sets 0755
   install_template "${TEMPLATES_DIR}/update-cloudflare-nft-sets.service" /etc/systemd/system/update-cloudflare-nft-sets.service 0644
   install_template "${TEMPLATES_DIR}/update-cloudflare-nft-sets.timer" /etc/systemd/system/update-cloudflare-nft-sets.timer 0644
+  install_template "${TEMPLATES_DIR}/systemd/supabase-direct-proxy.service" /etc/systemd/system/supabase-direct-proxy.service 0644
   install_template "${TEMPLATES_DIR}/sudoers/gha-ssh-docker-bridge" /etc/sudoers.d/gha-ssh-docker-bridge 0440
 
   install_template "${TEMPLATES_DIR}/docker-user/docker.service" "/home/${DOCKER_USER}/.config/systemd/user/docker.service" 0644
+  install_template "${TEMPLATES_DIR}/systemd/supabase-direct-proxy" /usr/local/bin/supabase-direct-proxy 0755
   chown "${DOCKER_USER}:${DOCKER_USER}" "/home/${DOCKER_USER}/.config/systemd/user/docker.service"
 }
 

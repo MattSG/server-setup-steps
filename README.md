@@ -63,6 +63,7 @@ These values are required but should not be committed:
 - `/home/docker/deploy/proxy.env`
 - `/home/docker/deploy/app.env`
 - `/home/docker/deploy/api.env`
+- `/etc/default/supabase-direct-proxy`
 
 Current env keys used by the running stack:
 
@@ -91,6 +92,11 @@ Current env keys used by the running stack:
   - `Supabase__JwtAudiences__0`
   - `Cors__AllowedOriginsCsv`
   - `Sentry__Dsn`
+- `/etc/default/supabase-direct-proxy`
+  - `SUPABASE_DIRECT_HOST`
+  - `SUPABASE_DIRECT_PORT`
+  - `SUPABASE_PROXY_LISTEN_ADDR`
+  - `SUPABASE_PROXY_LISTEN_PORT`
 
 ## GitHub Actions Deploy Contract
 
@@ -139,6 +145,8 @@ Rootless Docker:
 Stack:
 
 - `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) systemctl --user status swift-stack.service`
+- `systemctl status supabase-direct-proxy.service`
+- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker run --rm alpine:3.20 sh -lc 'apk add --no-cache postgresql-client busybox-extras >/dev/null && nc -vz 10.0.2.2 6543 && PGCONNECT_TIMEOUT=8 pg_isready -h 10.0.2.2 -p 6543 -d postgres'`
 - `curl -I https://$APP_DOMAIN`
 - `curl -I https://$API_DOMAIN`
 
@@ -146,6 +154,8 @@ Stack:
 
 - The firewall trusts Cloudflare source IPs for `80/443` and Tailscale only for SSH.
 - The Cloudflare refresh timer updates both nftables and the Caddy trusted proxy list.
+- Rootless containers can reach host loopback through `10.0.2.2` because the docker user service sets `DOCKERD_ROOTLESS_ROOTLESSKIT_DISABLE_HOST_LOOPBACK=false`.
+- If the API must use the Supabase direct IPv6 endpoint, run the host-local proxy on `127.0.0.1:6543` and point the API at `10.0.2.2:6543`.
 - The current live deploy model uses the `gha-ssh` sudo bridge. If you later want a stricter forced-command SSH gateway, use the staged pattern from `/etc/ssh/sshd_config.stage.d` as a separate hardening step rather than baking it into this baseline.
 - Official references used while shaping the proxy and CI templates:
   - Caddy trusted proxies: https://caddyserver.com/docs/caddyfile/options
