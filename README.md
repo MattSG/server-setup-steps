@@ -10,7 +10,7 @@ This folder captures the current working host and deployment setup from this ser
 - rootful Docker with IPv4 and IPv6 enabled
 - restricted deploy user `gha-ssh`
 - app stack under `/home/docker/deploy`
-- Caddy proxy in front of `app` and `api`
+- Caddy proxy on host networking in front of loopback-only `app` and `api`
 
 The live host state was used as the source of truth. A stricter staged `ForceCommand` deploy gateway existed in `/etc/ssh/sshd_config.stage.d`, but it is not currently active, so this bundle reproduces the working live model instead of switching deploy behavior.
 
@@ -71,6 +71,8 @@ Current env keys used by the running stack:
   - `APP_DOMAIN`
   - `API_DOMAIN`
   - `ACME_EMAIL`
+  - `APP_UPSTREAM`
+  - `API_UPSTREAM`
 - `registry.env`
   - `GHCR_USERNAME`
   - `GHCR_TOKEN`
@@ -147,6 +149,8 @@ Stack:
 - The firewall trusts Cloudflare source IPs for `80/443` and Tailscale only for SSH.
 - The Docker daemon is configured for IPv6-enabled bridge networking, explicit public DNS resolvers, and IPv6 address pools for Compose-created networks.
 - The firewall and Cloudflare refresh flow are written to coexist with Docker's own nftables and iptables-nft rules instead of flushing them away.
+- Caddy terminates public TLS directly on the host with `network_mode: host`, while the `app` and `api` containers only publish to `127.0.0.1`. This avoids edge issues from public Docker port publishing while keeping the upstream services private to the host.
+- Public TLS is managed by Caddy via ACME. Let’s Encrypt remains the normal/default expectation for this setup, but the current template pins `acme_ca` to ZeroSSL because the live host hit active Let’s Encrypt rate limits during recovery. You can switch the Caddyfile back to Let’s Encrypt later by removing the explicit `acme_ca` line once issuance pressure is gone.
 - The current live deploy model uses the `gha-ssh` sudo bridge. If you later want a stricter forced-command SSH gateway, use the staged pattern from `/etc/ssh/sshd_config.stage.d` as a separate hardening step rather than baking it into this baseline.
 - Official references used while shaping the proxy and CI templates:
   - Caddy trusted proxies: https://caddyserver.com/docs/caddyfile/options
