@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NFT_OUT="/etc/nftables.d/cloudflare-ips.nft"
+CADDY_OUT="/home/docker/deploy/caddy/cloudflare-trusted-proxies.caddy"
+
+tmp_nft="$(mktemp)"
+tmp_caddy="$(mktemp)"
+trap 'rm -f "${tmp_nft}" "${tmp_caddy}"' EXIT
+
+fetch_list() {
+  local url="$1"
+  curl -fsSL "${url}" | awk 'NF { print $0 }'
+}
+
+render_nft_define() {
+  local name="$1"
+  shift
+  local entries=("$@")
+  local i
+
+  printf 'define %s = {\n' "${name}" >>"${tmp_nft}"
+  for i in "${!entries[@]}"; do
+    if [[ "${i}" -gt 0 ]]; then
+      printf ',\n' >>"${tmp_nft}"
+    fi
+    printf '    %s' "${entries[${i}]}" >>"${tmp_nft}"
+  done
+  printf '\n}\n\n' >>"${tmp_nft}"
+}
+
+mapfile -t cf4 < <(fetch_list "https://www.cloudflare.com/ips-v4")
+mapfile -t cf6 < <(fetch_list "https://www.cloudflare.com/ips-v6")
+
+install -d -m 0755 /etc/nftables.d
+install -d -m 0755 /home/docker/deploy/caddy
+
+render_nft_define cloudflare_ipv4 "${cf4[@]}"
+render_nft_define cloudflare_ipv6 "${cf6[@]}"
+install -m 0644 "${tmp_nft}" "${NFT_OUT}"
+
+printf 'trusted_proxies static' >"${tmp_caddy}"
+for cidr in "${cf4[@]}" "${cf6[@]}"; do
+  printf ' %s' "${cidr}" >>"${tmp_caddy}"
+done
+printf '\n' >>"${tmp_caddy}"
+install -m 0644 "${tmp_caddy}" "${CADDY_OUT}"
+
+if systemctl is-active --quiet nftables; then
+  systemctl reload nftables
+fi
+
+if id -u docker >/dev/null 2>&1; then
+  docker_uid="$(id -u docker)"
+  runtime_dir="/run/user/${docker_uid}"
+
+  if [[ -S "${runtime_dir}/docker.sock" && -f /home/docker/deploy/compose.yaml ]]; then
+    runuser -u docker -- \
+      env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
+      docker compose -f /home/docker/deploy/compose.yaml exec -T caddy \
+      caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
+  fi
+fi

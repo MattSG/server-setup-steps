@@ -1,0 +1,30 @@
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    env_file:
+      - ./proxy.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - ./state:/srv/state
+      - caddy_data:/data
+      - caddy_config:/config
+
+  app:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - ./app.env
+
+  api:
+    image: ${API_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - ./api.env
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,1 @@
+gha-ssh ALL=(docker) NOPASSWD: /bin/bash -se --, /bin/bash -se -- *

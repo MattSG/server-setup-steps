@@ -1,0 +1,31 @@
+{
+	email {$ACME_EMAIL}
+
+	servers {
+		import /etc/caddy/cloudflare-trusted-proxies.caddy
+		trusted_proxies_strict
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
+}
+
+{$APP_DOMAIN} {
+	encode gzip zstd
+
+	@app_maintenance file /srv/state/app-maintenance
+
+	handle @app_maintenance {
+		root * /etc/caddy
+		rewrite * /app-deploy-holding.html
+		header Cache-Control "no-store, no-cache, must-revalidate"
+		file_server
+	}
+
+	handle {
+		reverse_proxy app:8080
+	}
+}
+
+{$API_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy api:8080
+}

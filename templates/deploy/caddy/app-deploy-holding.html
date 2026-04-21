@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deployment In Progress</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f4ef;
+      --text: #1e1a17;
+      --accent: #a54f2d;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, rgba(165, 79, 45, 0.18), transparent 38%),
+        linear-gradient(180deg, #fbf8f3, var(--bg));
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--text);
+    }
+    main {
+      width: min(42rem, calc(100vw - 3rem));
+      padding: 2.5rem;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(30, 26, 23, 0.08);
+      box-shadow: 0 18px 60px rgba(48, 36, 28, 0.10);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    p {
+      line-height: 1.6;
+      font-size: 1.05rem;
+    }
+    strong {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Deployment In Progress</h1>
+    <p>The application is temporarily serving a maintenance page while a release is being applied.</p>
+    <p><strong>Status:</strong> try again in a minute.</p>
+  </main>
+</body>
+</html>
