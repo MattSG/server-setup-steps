@@ -135,6 +135,7 @@ install_host_templates() {
   install_template "${TEMPLATES_DIR}/update-cloudflare-nft-sets.service" /etc/systemd/system/update-cloudflare-nft-sets.service 0644
   install_template "${TEMPLATES_DIR}/update-cloudflare-nft-sets.timer" /etc/systemd/system/update-cloudflare-nft-sets.timer 0644
   install_template "${TEMPLATES_DIR}/systemd/supabase-direct-proxy.service" /etc/systemd/system/supabase-direct-proxy.service 0644
+  [[ -f /etc/default/supabase-direct-proxy ]] || install_template "${TEMPLATES_DIR}/systemd/supabase-direct-proxy.env.example" /etc/default/supabase-direct-proxy 0600
   install_template "${TEMPLATES_DIR}/sudoers/gha-ssh-docker-bridge" /etc/sudoers.d/gha-ssh-docker-bridge 0440
 
   install_template "${TEMPLATES_DIR}/docker-user/docker.service" "/home/${DOCKER_USER}/.config/systemd/user/docker.service" 0644
@@ -179,9 +180,11 @@ Host bootstrap complete.
 Next:
   1. Join Tailscale: tailscale up --ssh
   2. Add the GitHub Actions public key to /home/${DEPLOY_USER}/.ssh/authorized_keys
-  3. Run ${SCRIPT_DIR}/configure-stack.sh
-  4. Fill /home/${DOCKER_USER}/deploy/*.env with real values
-  5. Start the stack: ${SCRIPT_DIR}/configure-stack.sh --start --pull
+  3. Fill /etc/default/supabase-direct-proxy with the real Supabase direct host
+  4. Enable the proxy: systemctl enable --now supabase-direct-proxy.service
+  5. Run ${SCRIPT_DIR}/configure-stack.sh
+  6. Fill /home/${DOCKER_USER}/deploy/*.env with real values
+  7. Start the stack: ${SCRIPT_DIR}/configure-stack.sh --start --pull
 EOF
 }
 

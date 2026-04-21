@@ -29,6 +29,7 @@ The live host state was used as the source of truth. A stricter staged `ForceCom
 - creates `docker` and `gha-ssh`
 - configures subordinate UID/GID ranges for rootless containers
 - installs sysctl, journald, SSH, fail2ban, nftables, and Cloudflare refresh assets
+- installs the Supabase direct proxy unit and launcher
 - enables `tailscaled`, `nftables`, `fail2ban`, `ssh`, and the Cloudflare refresh timer
 - disables rootful Docker services
 - enables rootless Docker under the `docker` user
@@ -47,10 +48,12 @@ The live host state was used as the source of truth. A stricter staged `ForceCom
 2. Run `sudo ./bootstrap-host.sh`.
 3. Join the host to Tailscale:
    `sudo tailscale up --ssh`
-4. Install the deploy public key into `/home/gha-ssh/.ssh/authorized_keys`.
-5. Run `sudo ./configure-stack.sh`.
-6. Fill the real env files in `/home/docker/deploy/`.
-7. Start the stack:
+4. Fill `/etc/default/supabase-direct-proxy`, then enable the proxy:
+   `sudo systemctl enable --now supabase-direct-proxy.service`
+5. Install the deploy public key into `/home/gha-ssh/.ssh/authorized_keys`.
+6. Run `sudo ./configure-stack.sh`.
+7. Fill the real env files in `/home/docker/deploy/`.
+8. Start the stack:
    `sudo ./configure-stack.sh --start --pull`
 
 ## Manual Inputs That Stay Out Of Git
