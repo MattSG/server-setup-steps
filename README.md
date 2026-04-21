@@ -36,7 +36,7 @@ The live host state was used as the source of truth. A stricter staged `ForceCom
 `configure-stack.sh`:
 
 - creates `/home/docker/deploy`
-- installs `compose.yaml`, Caddy config, env examples, and the `swift-stack.service`
+- installs `compose.yaml`, Caddy config, and env files
 - copies example env files into real env paths if they do not exist yet
 - refreshes the generated Cloudflare allowlists
 - optionally logs in to GHCR and starts the stack
@@ -144,8 +144,8 @@ Rootless Docker:
 
 Stack:
 
-- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) systemctl --user status swift-stack.service`
 - `systemctl status supabase-direct-proxy.service`
+- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml ps`
 - `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker run --rm alpine:3.20 sh -lc 'apk add --no-cache postgresql-client busybox-extras >/dev/null && nc -vz 10.0.2.2 6543 && PGCONNECT_TIMEOUT=8 pg_isready -h 10.0.2.2 -p 6543 -d postgres'`
 - `curl -I https://$APP_DOMAIN`
 - `curl -I https://$API_DOMAIN`
