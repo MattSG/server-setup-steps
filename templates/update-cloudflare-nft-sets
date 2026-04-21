@@ -57,7 +57,7 @@ if id -u docker >/dev/null 2>&1; then
   if [[ -S "${runtime_dir}/docker.sock" && -f /home/docker/deploy/compose.yaml ]]; then
     runuser -u docker -- \
       env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
-      docker compose -f /home/docker/deploy/compose.yaml exec -T caddy \
+      docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml exec -T caddy \
       caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
   fi
 fi
