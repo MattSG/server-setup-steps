@@ -4,9 +4,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./proxy.env
-    ports:
-      - "80:80"
-      - "443:443"
+    network_mode: host
     volumes:
       - ./caddy:/etc/caddy:ro
       - ./state:/srv/state
@@ -18,12 +16,16 @@ services:
     restart: unless-stopped
     env_file:
       - ./app.env
+    ports:
+      - "127.0.0.1:3000:8080"
 
   api:
     image: ${API_IMAGE}
     restart: unless-stopped
     env_file:
       - ./api.env
+    ports:
+      - "127.0.0.1:8080:8080"
 
 volumes:
   caddy_data:

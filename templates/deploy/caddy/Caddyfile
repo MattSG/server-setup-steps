@@ -1,5 +1,6 @@
 {
 	email {$ACME_EMAIL}
+	acme_ca https://acme.zerossl.com/v2/DV90
 
 	servers {
 		import /etc/caddy/cloudflare-trusted-proxies.caddy
@@ -21,11 +22,11 @@
 	}
 
 	handle {
-		reverse_proxy app:8080
+		reverse_proxy {$APP_UPSTREAM}
 	}
 }
 
 {$API_DOMAIN} {
 	encode gzip zstd
-	reverse_proxy api:8080
+	reverse_proxy {$API_UPSTREAM}
 }
