@@ -33,21 +33,6 @@ log() {
   printf '\n[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"
 }
 
-docker_uid() {
-  id -u "${DOCKER_USER}"
-}
-
-docker_runtime_dir() {
-  printf '/run/user/%s\n' "$(docker_uid)"
-}
-
-docker_env() {
-  env \
-    HOME="${DOCKER_HOME}" \
-    XDG_RUNTIME_DIR="$(docker_runtime_dir)" \
-    DOCKER_HOST="unix://$(docker_runtime_dir)/docker.sock"
-}
-
 copy_if_missing_or_forced() {
   local src="$1"
   local dst="$2"
@@ -60,22 +45,6 @@ copy_if_missing_or_forced() {
   install -D -m "${mode}" "${src}" "${dst}"
 }
 
-render_template() {
-  local src="$1"
-  local dst="$2"
-  local mode="$3"
-
-  if [[ -e "${dst}" && "${FORCE}" -ne 1 ]]; then
-    return
-  fi
-
-  sed \
-    -e "s|__DOCKER_HOME__|${DOCKER_HOME}|g" \
-    -e "s|__DOCKER_UID__|$(docker_uid)|g" \
-    "${src}" >"${dst}"
-  chmod "${mode}" "${dst}"
-}
-
 assert_no_placeholders() {
   local file="$1"
   if grep -q '__REQUIRED__' "${file}"; then
@@ -86,7 +55,6 @@ assert_no_placeholders() {
 
 install_stack_files() {
   install -d -m 0755 -o "${DOCKER_USER}" -g "${DOCKER_USER}" "${DEPLOY_DIR}/caddy" "${DEPLOY_DIR}/state"
-  install -d -m 0755 -o "${DOCKER_USER}" -g "${DOCKER_USER}" "${DOCKER_HOME}/.config/systemd/user"
 
   copy_if_missing_or_forced "${TEMPLATES_DIR}/deploy/compose.yaml" "${DEPLOY_DIR}/compose.yaml" 0644
   copy_if_missing_or_forced "${TEMPLATES_DIR}/deploy/caddy/Caddyfile" "${DEPLOY_DIR}/caddy/Caddyfile" 0644
@@ -106,13 +74,6 @@ install_stack_files() {
   chown -R "${DOCKER_USER}:${DOCKER_USER}" "${DEPLOY_DIR}"
 }
 
-reload_user_units() {
-  local runtime_dir
-  runtime_dir="$(docker_runtime_dir)"
-  systemctl start "user@$(docker_uid).service"
-  runuser -u "${DOCKER_USER}" -- env XDG_RUNTIME_DIR="${runtime_dir}" systemctl --user daemon-reload
-}
-
 refresh_cloudflare_data() {
   if [[ -x /usr/local/sbin/update-cloudflare-nft-sets ]]; then
     /usr/local/sbin/update-cloudflare-nft-sets
@@ -120,15 +81,12 @@ refresh_cloudflare_data() {
 }
 
 ghcr_login() {
-  local runtime_dir
-  runtime_dir="$(docker_runtime_dir)"
-
   if grep -q '__REQUIRED__' "${DEPLOY_DIR}/registry.env"; then
     echo "Skipping GHCR login: registry.env still has placeholders."
     return
   fi
 
-  runuser -u "${DOCKER_USER}" -- env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
+  runuser -u "${DOCKER_USER}" -- \
     bash -lc '
       set -euo pipefail
       cd "'"${DEPLOY_DIR}"'"
@@ -140,24 +98,20 @@ ghcr_login() {
 }
 
 start_stack() {
-  local runtime_dir
-  runtime_dir="$(docker_runtime_dir)"
-
   assert_no_placeholders "${DEPLOY_DIR}/images.env"
   assert_no_placeholders "${DEPLOY_DIR}/proxy.env"
   assert_no_placeholders "${DEPLOY_DIR}/app.env"
   assert_no_placeholders "${DEPLOY_DIR}/api.env"
 
+  systemctl enable --now containerd.service docker.service docker.socket >/dev/null
   ghcr_login
 
   if [[ "${PULL_IMAGES}" -eq 1 ]]; then
-    runuser -u "${DOCKER_USER}" -- env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
+    runuser -u "${DOCKER_USER}" -- \
       docker compose --env-file "${DEPLOY_DIR}/images.env" -f "${DEPLOY_DIR}/compose.yaml" pull
   fi
 
-  runuser -u "${DOCKER_USER}" -- env XDG_RUNTIME_DIR="${runtime_dir}" systemctl --user enable --now docker.service
-
-  runuser -u "${DOCKER_USER}" -- env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
+  runuser -u "${DOCKER_USER}" -- \
     docker compose --env-file "${DEPLOY_DIR}/images.env" -f "${DEPLOY_DIR}/compose.yaml" up -d
 }
 
@@ -193,9 +147,6 @@ main() {
 
   log "Installing stack templates into ${DEPLOY_DIR}"
   install_stack_files
-
-  log "Reloading docker user units"
-  reload_user_units
 
   log "Refreshing Cloudflare-generated files"
   refresh_cloudflare_data

@@ -39,8 +39,6 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/id_ed25519 "${{ vars.DEPLOY_USER || 'gha-ssh' }}@${{ secrets.DEPLOY_HOST }}" 'sudo -u docker /bin/bash -se --' <<'REMOTE'
             set -euo pipefail
-            export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-            export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
             cd /home/docker/deploy
             set -a
             source ./registry.env

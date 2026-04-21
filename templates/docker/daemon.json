@@ -1,0 +1,9 @@
+{
+  "ipv6": true,
+  "fixed-cidr-v6": "fd00:dead:beef::/64",
+  "default-address-pools": [
+    { "base": "172.17.0.0/16", "size": 24 },
+    { "base": "fd00:deaf:cafe::/48", "size": 64 }
+  ],
+  "dns": ["1.1.1.1", "2606:4700:4700::1111", "1.0.0.1", "2606:4700:4700::1001"]
+}

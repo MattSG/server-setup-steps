@@ -50,14 +50,8 @@ if systemctl is-active --quiet nftables; then
   systemctl reload nftables
 fi
 
-if id -u docker >/dev/null 2>&1; then
-  docker_uid="$(id -u docker)"
-  runtime_dir="/run/user/${docker_uid}"
-
-  if [[ -S "${runtime_dir}/docker.sock" && -f /home/docker/deploy/compose.yaml ]]; then
-    runuser -u docker -- \
-      env XDG_RUNTIME_DIR="${runtime_dir}" DOCKER_HOST="unix://${runtime_dir}/docker.sock" \
-      docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml exec -T caddy \
-      caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
-  fi
+if id -u docker >/dev/null 2>&1 && [[ -S /var/run/docker.sock && -f /home/docker/deploy/compose.yaml ]]; then
+  runuser -u docker -- \
+    docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml exec -T caddy \
+    caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
 fi

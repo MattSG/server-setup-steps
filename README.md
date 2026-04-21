@@ -1,13 +1,13 @@
 # Debian 13 Server Reconstruction Bundle
 
-This folder captures the current working host and deployment setup from this server and turns it into a commitable bootstrap bundle. The target state is:
+This folder captures the current working host and deployment setup from this server and turns it into a committable bootstrap bundle. The target state is:
 
 - Debian 13 host
 - `tailscaled` enabled, SSH reachable only over `tailscale0`
 - `nftables` default-drop input policy
 - `80/443` only reachable from Cloudflare IP ranges
 - `fail2ban` protecting `sshd` with nftables actions
-- rootless Docker running as the `docker` user
+- rootful Docker with IPv4 and IPv6 enabled
 - restricted deploy user `gha-ssh`
 - app stack under `/home/docker/deploy`
 - Caddy proxy in front of `app` and `api`
@@ -27,12 +27,9 @@ The live host state was used as the source of truth. A stricter staged `ForceCom
 - installs required packages
 - configures the Tailscale apt source
 - creates `docker` and `gha-ssh`
-- configures subordinate UID/GID ranges for rootless containers
+- installs a rootful Docker daemon config with IPv6 enabled
 - installs sysctl, journald, SSH, fail2ban, nftables, and Cloudflare refresh assets
-- installs the Supabase direct proxy unit and launcher
-- enables `tailscaled`, `nftables`, `fail2ban`, `ssh`, and the Cloudflare refresh timer
-- disables rootful Docker services
-- enables rootless Docker under the `docker` user
+- enables `tailscaled`, `nftables`, `fail2ban`, `ssh`, the Cloudflare refresh timer, and rootful Docker
 
 `configure-stack.sh`:
 
@@ -48,12 +45,10 @@ The live host state was used as the source of truth. A stricter staged `ForceCom
 2. Run `sudo ./bootstrap-host.sh`.
 3. Join the host to Tailscale:
    `sudo tailscale up --ssh`
-4. Fill `/etc/default/supabase-direct-proxy`, then enable the proxy:
-   `sudo systemctl enable --now supabase-direct-proxy.service`
-5. Install the deploy public key into `/home/gha-ssh/.ssh/authorized_keys`.
-6. Run `sudo ./configure-stack.sh`.
-7. Fill the real env files in `/home/docker/deploy/`.
-8. Start the stack:
+4. Install the deploy public key into `/home/gha-ssh/.ssh/authorized_keys`.
+5. Run `sudo ./configure-stack.sh`.
+6. Fill the real env files in `/home/docker/deploy/`.
+7. Start the stack:
    `sudo ./configure-stack.sh --start --pull`
 
 ## Manual Inputs That Stay Out Of Git
@@ -66,7 +61,6 @@ These values are required but should not be committed:
 - `/home/docker/deploy/proxy.env`
 - `/home/docker/deploy/app.env`
 - `/home/docker/deploy/api.env`
-- `/etc/default/supabase-direct-proxy`
 
 Current env keys used by the running stack:
 
@@ -95,11 +89,6 @@ Current env keys used by the running stack:
   - `Supabase__JwtAudiences__0`
   - `Cors__AllowedOriginsCsv`
   - `Sentry__Dsn`
-- `/etc/default/supabase-direct-proxy`
-  - `SUPABASE_DIRECT_HOST`
-  - `SUPABASE_DIRECT_PORT`
-  - `SUPABASE_PROXY_LISTEN_ADDR`
-  - `SUPABASE_PROXY_LISTEN_PORT`
 
 ## GitHub Actions Deploy Contract
 
@@ -127,7 +116,7 @@ The remote execution contract is:
 ssh gha-ssh@$DEPLOY_HOST 'sudo -u docker /bin/bash -se --'
 ```
 
-That keeps root SSH disabled and limits CI to running commands as the `docker` user through the sudoers bridge.
+That keeps root SSH disabled while still allowing CI to run Docker commands and read the deploy env files as the `docker` user.
 
 ## Validation Checklist
 
@@ -140,25 +129,24 @@ Host:
 - `nft list ruleset`
 - `fail2ban-client status sshd`
 
-Rootless Docker:
+Docker:
 
-- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) systemctl --user status docker.service`
-- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker ps`
+- `systemctl is-enabled docker.service containerd.service docker.socket`
+- `systemctl is-active docker.service containerd.service docker.socket`
+- `docker info`
 
 Stack:
 
-- `systemctl status supabase-direct-proxy.service`
-- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml ps`
-- `sudo -u docker env XDG_RUNTIME_DIR=/run/user/$(id -u docker) DOCKER_HOST=unix:///run/user/$(id -u docker)/docker.sock docker run --rm alpine:3.20 sh -lc 'apk add --no-cache postgresql-client busybox-extras >/dev/null && nc -vz 10.0.2.2 6543 && PGCONNECT_TIMEOUT=8 pg_isready -h 10.0.2.2 -p 6543 -d postgres'`
+- `sudo -u docker docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml ps`
+- `docker run --rm postgres:16-alpine sh -lc 'PGPASSWORD=<password> pg_isready -h db.<project>.supabase.co -p 5432 -U postgres -d postgres'`
 - `curl -I https://$APP_DOMAIN`
 - `curl -I https://$API_DOMAIN`
 
 ## Notes
 
 - The firewall trusts Cloudflare source IPs for `80/443` and Tailscale only for SSH.
-- The Cloudflare refresh timer updates both nftables and the Caddy trusted proxy list.
-- Rootless containers can reach host loopback through `10.0.2.2` because the docker user service sets `DOCKERD_ROOTLESS_ROOTLESSKIT_DISABLE_HOST_LOOPBACK=false`.
-- If the API must use the Supabase direct IPv6 endpoint, run the host-local proxy on `127.0.0.1:6543` and point the API at `10.0.2.2:6543`.
+- The Docker daemon is configured for IPv6-enabled bridge networking, explicit public DNS resolvers, and IPv6 address pools for Compose-created networks.
+- The firewall and Cloudflare refresh flow are written to coexist with Docker's own nftables and iptables-nft rules instead of flushing them away.
 - The current live deploy model uses the `gha-ssh` sudo bridge. If you later want a stricter forced-command SSH gateway, use the staged pattern from `/etc/ssh/sshd_config.stage.d` as a separate hardening step rather than baking it into this baseline.
 - Official references used while shaping the proxy and CI templates:
   - Caddy trusted proxies: https://caddyserver.com/docs/caddyfile/options

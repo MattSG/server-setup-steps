@@ -28,3 +28,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+
+networks:
+  default:
+    enable_ipv6: true
