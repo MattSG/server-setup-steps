@@ -142,7 +142,7 @@ Stack:
 - `sudo -u docker docker compose --env-file /home/docker/deploy/images.env -f /home/docker/deploy/compose.yaml ps`
 - `docker run --rm postgres:16-alpine sh -lc 'PGPASSWORD=<password> pg_isready -h db.<project>.supabase.co -p 5432 -U postgres -d postgres'`
 - `curl -I https://$APP_DOMAIN`
-- `curl -I https://$API_DOMAIN`
+- `curl -X GET -I https://$API_DOMAIN/<known-get-endpoint>`
 
 ## Notes
 
@@ -150,7 +150,8 @@ Stack:
 - The Docker daemon is configured for IPv6-enabled bridge networking, explicit public DNS resolvers, and IPv6 address pools for Compose-created networks.
 - The firewall and Cloudflare refresh flow are written to coexist with Docker's own nftables and iptables-nft rules instead of flushing them away.
 - Caddy terminates public TLS directly on the host with `network_mode: host`, while the `app` and `api` containers only publish to `127.0.0.1`. This avoids edge issues from public Docker port publishing while keeping the upstream services private to the host.
-- Public TLS is managed by Caddy via ACME. Let’s Encrypt remains the normal/default expectation for this setup, but the current template pins `acme_ca` to ZeroSSL because the live host hit active Let’s Encrypt rate limits during recovery. You can switch the Caddyfile back to Let’s Encrypt later by removing the explicit `acme_ca` line once issuance pressure is gone.
+- `APP_UPSTREAM` and `API_UPSTREAM` are topology defaults for this host, not secrets. The baseline values are `127.0.0.1:3000` and `127.0.0.1:8080`.
+- Public TLS is managed by Caddy via ACME. Let’s Encrypt is the intended default issuer for this setup. If issuance is temporarily rate-limited during recovery, you can pin `acme_ca` to ZeroSSL as an operational fallback until Let’s Encrypt becomes available again.
 - The current live deploy model uses the `gha-ssh` sudo bridge. If you later want a stricter forced-command SSH gateway, use the staged pattern from `/etc/ssh/sshd_config.stage.d` as a separate hardening step rather than baking it into this baseline.
 - Official references used while shaping the proxy and CI templates:
   - Caddy trusted proxies: https://caddyserver.com/docs/caddyfile/options
